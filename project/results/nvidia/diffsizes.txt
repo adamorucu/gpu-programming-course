@@ -1,0 +1,103 @@
+Random number generator seed: 7
+Input layer size : 16
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.278240 ms
+Time taken backprop: 0.036896 ms
+Training done
+Random number generator seed: 7
+Input layer size : 160
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.268320 ms
+Time taken backprop: 0.036832 ms
+Training done
+Random number generator seed: 7
+Input layer size : 1600
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.244672 ms
+Time taken backprop: 0.036608 ms
+Training done
+Random number generator seed: 7
+Input layer size : 16000
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.228320 ms
+Time taken backprop: 0.120608 ms
+Training done
+Random number generator seed: 7
+Input layer size : 160000
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.497152 ms
+Time taken backprop: 1.024480 ms
+Training done
+
+----
+
+Random number generator seed: 7
+Input layer size : 16
+Starting training kernel
+Performing GPU computation
+Time taken froward: 153.964539 ms
+Time taken backprop: 0.100384 ms
+Training done
+
+real	0m1.403s
+user	0m0.082s
+sys	0m0.165s
+Random number generator seed: 7
+Input layer size : 160
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.302656 ms
+Time taken backprop: 0.037632 ms
+Training done
+
+real	0m0.166s
+user	0m0.012s
+sys	0m0.130s
+Random number generator seed: 7
+Input layer size : 1600
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.286432 ms
+Time taken backprop: 0.044064 ms
+Training done
+
+real	0m0.172s
+user	0m0.022s
+sys	0m0.126s
+Random number generator seed: 7
+Input layer size : 16000
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.220288 ms
+Time taken backprop: 0.115712 ms
+Training done
+
+real	0m0.175s
+user	0m0.033s
+sys	0m0.119s
+Random number generator seed: 7
+Input layer size : 160000
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.562368 ms
+Time taken backprop: 1.020128 ms
+Training done
+
+real	0m0.318s
+user	0m0.122s
+sys	0m0.173s
+Random number generator seed: 7
+Input layer size : 1600000
+Starting training kernel
+Performing GPU computation
+Time taken froward: 0.257280 ms
+bpnn kernel error: invalid configuration argument
+
+real	0m1.476s
+user	0m0.920s
+sys	0m0.456s
