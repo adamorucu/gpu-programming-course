@@ -81,7 +81,7 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
   dim3  grid( 1 , num_blocks);
   dim3  threads(16 , 16);
 
-  hipSetDevice(0);
+  // hipSetDevice(0);
 
   
   input_weights_one_dim = (float *) malloc((in + 1)* (hid + 1) * sizeof(float));
@@ -122,7 +122,6 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
   hipMemcpy(input_cuda, net->input_units, (in + 1) * sizeof(float), hipMemcpyHostToDevice);
   hipMemcpy(input_hidden_cuda, input_weights_one_dim, (in + 1) * (hid + 1) * sizeof(float), hipMemcpyHostToDevice);
 
-  
   
   bpnn_layerforward_CUDA<<< grid, threads >>>(input_cuda,
 	                                          output_hidden_cuda,

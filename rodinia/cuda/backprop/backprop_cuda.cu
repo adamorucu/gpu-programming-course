@@ -7,6 +7,7 @@
 #include <math.h>
 #include <cuda.h>
 #include <sys/time.h>
+#include <cuda_runtime.h>
 
 // includes, kernels
 #include "backprop_cuda_kernel.cu"
@@ -119,7 +120,10 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
   cudaMemcpy(input_hidden_cuda, input_weights_one_dim, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
 
   
-  
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start);
   bpnn_layerforward_CUDA<<< grid, threads >>>(input_cuda,
 	                                          output_hidden_cuda,
 											  input_hidden_cuda,
@@ -128,6 +132,13 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
 											  hid);
  
   cudaThreadSynchronize();
+
+
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  float milliseconds = 0;
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  printf("Time taken froward: %f ms\n", milliseconds);
   
   cudaError_t error = cudaGetLastError();
 	if (error != cudaSuccess) {
@@ -168,6 +179,9 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
   cudaMemcpy(input_prev_weights_cuda, input_weights_prev_one_dim, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(input_hidden_cuda, input_weights_one_dim, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
 
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start);
 
   bpnn_adjust_weights_cuda<<< grid, threads >>>(hidden_delta_cuda,  
 												hid, 
@@ -176,6 +190,13 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
 												input_hidden_cuda, 
 												input_prev_weights_cuda
 												);
+  
+
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  milliseconds = 0;
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  printf("Time taken backprop: %f ms\n", milliseconds);
 
   cudaMemcpy(net->input_units, input_cuda, (in + 1) * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(input_weights_one_dim, input_hidden_cuda, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyDeviceToHost);
