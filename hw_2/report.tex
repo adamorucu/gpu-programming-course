@@ -1,0 +1,144 @@
+\documentclass[a4paper,11pt]{scrartcl}
+
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsthm} 
+\usepackage{url}
+\usepackage[left=20mm,top=20mm]{geometry}
+\usepackage{mathpazo}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+
+\title{Assignment II}
+\author{Adam Orucu}
+
+
+\begin{document}
+
+\maketitle
+
+Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
+
+\section*{Exercise 1}
+
+\begin{enumerate}
+\item \textbf{Explain how the program is compiled and run.}
+The code is compiled and run the same way as in the example in the first assignment:
+
+\verb|nvcc lab_ex1.cu -o ex1 & ./ex1 32|
+
+\item \textbf{For a vector length of N:}
+\begin{itemize}
+    \item \textbf{How many floating operations are being performed in your vector add kernel? }
+    One FLOP is performed in the kernel since one index of two vectors is added within it. This process is repeated $N$ times.
+
+    \item \textbf{How many global memory reads are being performed by your kernel? }
+    Each thread reads one element each from $in1$ and $in2$. Having $N$ threads means there will be $2N$ global memory reads.
+\end{itemize}
+
+\item \textbf{For a vector length of 1024:}
+\begin{itemize}
+    \item \textbf{Explain how many CUDA threads and thread blocks you used. }
+    I have set 32 threads per block (TPB). Additionally, I set the blocks per grid (BPG) in the following way,
+    $$BPG = \frac{\text{inputLength} + \text{TPB} - 1}{\text{TPB}}.$$
+
+    This means that there are $(1024 + 32 - 1) / 32 = 32$ blocks.
+
+    \item \textbf{Profile your program with Nvidia Nsight. What Achieved Occupancy did you get?}
+
+    \includegraphics*[width=0.8\textwidth]{images/ach_occ.png}
+\end{itemize}
+
+\item \textbf{Now increase the vector length to 131070:}
+\begin{itemize}
+    \item \textbf{Did your program still work? If not, what changes did you make?}
+    Yes, it worked.
+
+    \item \textbf{Explain how many CUDA threads and thread blocks you used.}
+    TPB is left at 32. With the same equation we can calculate number of blocks to be $(131070 + 32 - 1) / 32 = 4096$.
+
+    \item \textbf{Profile your program with Nvidia Nsight. What Achieved Occupancy do you get now?}
+
+    \includegraphics*[width=0.8\textwidth]{images/ach_occ2.png}
+\end{itemize}
+
+\item \textbf{Further increase the vector length (try 6-10 different vector length), plot a stacked bar chart showing the breakdown of time including (1) data copy from host to device (2) the CUDA kernel (3) data copy from device to host. For this, you will need to add simple CPU timers to your code regions.}
+
+\includegraphics*[width=0.8\textwidth]{images/ex1_times.png}
+
+\end{enumerate}
+
+% %%%%%%%%%%%%%
+\section*{Exercise 2}
+
+\begin{enumerate}
+\item \textbf{Name three applications domains of matrix multiplication.}
+
+(1) Deep learning, (2) Computer graphics, and (3) scientific simulations
+
+\item \textbf{How many floating operations are being performed in your matrix multiply kernel? }
+
+Each iteration of the loop inside the kernel has one multiplication and one addition operation. Additionally, this kernel operation is done for all calculations during matrix multiplication. This corresponds to the number of elements in the output matrix C. Therefore the total number of FLOPs in this matrix multiplication is \verb|numCRows * numCColumns * 2 * numAColumns|.
+
+\item \textbf{How many global memory reads are being performed by your kernel?  }
+
+For each thread there are \verb|numAColumns| reads for matrix A and matrix B each. Therefore, in total \verb|numCRows * numCColumns * 2 * numAColumns|.
+
+\item \textbf{For a matrix A of (128x128) and B of (128x128):}
+\begin{itemize}
+    \item \textbf{Explain how many CUDA threads and thread blocks you used. }
+    Block size is set to 8 by 8 which is 64 threads per block. A similar method to the one in the first exercise is used to calculate one dimmention of the number of blocks (also same as in the lecture). This gives the grid size of 16 by 16 which is 256.
+
+    \item \textbf{Profile your program with Nvidia Nsight. What Achieved Occupancy did you get? }
+
+    \includegraphics*[width=0.8\textwidth]{images/ach_occ3.png}
+\end{itemize}
+
+\item \textbf{For a matrix A of (511x1023) and B of (1023x4094):}
+\begin{itemize}
+    \item \textbf{Did your program still work? If not, what changes did you make?}
+    Yes, it worked.
+
+    \item \textbf{Explain how many CUDA threads and thread blocks you used.}
+    Block size again is 64 threads. With the same calculation grid is $64*512=32768$.
+
+    \item \textbf{Profile your program with Nvidia Nsight. What Achieved Occupancy do you get now?}
+
+    \includegraphics*[width=0.8\textwidth]{images/ach_occ4.png}
+
+\end{itemize}
+
+\item \textbf{Further increase the size of matrix A and B, plot a stacked bar chart showing the breakdown of time including (1) data copy from host to device (2) the CUDA kernel (3) data copy from device to host. For this, you will need to add simple CPU timers to your code regions. Explain what you observe.}
+
+The difference in matrix multiplication compared to vector addition is that the kernel now takes a bigger portion of the total time. This is expacted since the number of operations has grown much more than the amount of data that is read/written. The matrices correcponding to the indeces provided in the figures are provided in Table 1.
+
+\includegraphics*[width=0.8\textwidth]{images/ex2.png}
+
+\begin{table}
+    \centering
+    \caption{Tested matrices}
+    \begin{tabular}{rrrrr}
+    \toprule
+     Index & Arow & Acol & Brow & Bcol \\
+    \midrule
+         0 &  128 &  128 &  128 &  128 \\
+         1 &  511 & 1023 & 1023 & 4094 \\
+         2 &  512 & 1024 & 1024 & 4094 \\
+         3 & 1024 & 1024 & 1024 & 4094 \\
+         4 & 1024 & 2048 & 2048 & 2048 \\
+         5 & 2048 & 2048 & 2048 & 2048 \\
+         6 & 2048 & 4094 & 4094 & 2048 \\
+    \bottomrule
+    \end{tabular}
+    \end{table}
+
+
+\item \textbf{Now, change DataType from double to float, re-plot the a stacked bar chart showing the time breakdown. Explain what you observe. }
+
+Total time decreases when the data type is changed to float because float has a lower precision and therefore it is an "easier" task.
+
+\includegraphics*[width=0.8\textwidth]{images/ex22.png}
+
+\end{enumerate}
+
+\end{document}

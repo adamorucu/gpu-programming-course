@@ -1,0 +1,81 @@
+\documentclass[a4paper,11pt]{scrartcl}
+
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsthm} 
+\usepackage{url}
+\usepackage[left=20mm,top=20mm]{geometry}
+\usepackage{mathpazo}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+
+\title{Assignment IV}
+\author{Adam Orucu}
+
+\begin{document}
+
+\maketitle
+
+Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
+
+% %%%%%%%%%%%%%
+\section*{Exercise 1}
+
+\begin{enumerate}
+    \item \textbf{Assume X=800 and Y=600. Assume that we decided to use a grid of 16X16 blocks. That is, each block is organized as a 2D 16X16 array of threads. How many warps will be generated during the execution of the kernel? How many warps will have control divergence? Please explain your answers.}
+
+    There will be $ceil(800/16) * ceil(600/16) = 1900$ blocks. Since each block has $16*16=256$ threads there will be $256 * 1900 = 486,400$ threads in total. Given that each warp has 32 threads the number of warps is $486,400 / 32 = 15,200$.
+
+    600 is not a multiple of 16, therefore both bottom edge will have divergence. $ciel(800/16) = 50$ blocks will be in divergence. This is $50*256/32= 400$ warps.
+
+    \item \textbf{Now assume X=600 and Y=800 instead, how many warps will have control divergence? Please explain your answers.}
+    
+    Repeating the same calculations, 600 is not a multiple of 16, therefore both right edge will have divergence. $ciel(800/16) = 50$ blocks will be in divergence. This is $50*256/32= 400$ warps.
+
+    \item \textbf{Now assume X=600 and Y=799, how many warps will have control divergence? Please explain your answers.}
+
+    Repeating the same calculations, 600 is not a multiple of 16, therefore both right edge will have divergence. $ciel(799/16) = 50$ blocks will be in divergence. This is $50*256/32= 400$ warps.
+
+\end{enumerate}
+
+
+
+% %%%%%%%%%%%%%
+\section*{Exercise 2}
+
+\begin{enumerate}
+  \item \textbf{Compared to the non-streamed vector addition, what performance gain do you get? Present in a plot ( you may include comparison at different vector length)}
+
+  There wasn't a performance gain in fact streamed version of the code ended up being slightly slower.
+    
+  \includegraphics*[width=0.6\textwidth]{images/inputsize.png}
+
+  \item \textbf{Use nvprof to collect traces and the NVIDIA Visual Profiler (nvvp) to visualize the overlap of communication and computation.}
+
+  I wasn't able to make nvvp work on two different operating systems.
+
+  \includegraphics*[width=0.6\textwidth]{images/err.png}
+
+  \item \textbf{What is the impact of segment size on performance? Present in a plot ( you may choose a large vector and compare 4-8 different segment sizes)}
+
+  \includegraphics*[width=0.6\textwidth]{images/segmentsize.png}
+
+\end{enumerate}
+
+
+% %%%%%%%%%%%%%
+\section*{Exercise 3}
+
+I wasn't able to generate the tests because I exceded the compute limit on Google Colab.
+
+\begin{enumerate}
+
+    \item \textbf{Run the program with different dimX values. For each one, approximate the FLOPS (floating-point operation per second) achieved in computing the SMPV (sparse matrix multiplication). Report FLOPS at different input sizes in a FLOPS. What do you see compared to the peak throughput you report in Lab2?}
+
+    \item \textbf{Run the program with dimX=128 and vary nsteps from 100 to 10000. Plot the relative error of the approximation at different nstep. What do you observe?}
+
+    \item \textbf{Compare the performance with and without the prefetching in Unified Memory. How is the performance impact?}
+
+\end{enumerate}
+
+\end{document}
