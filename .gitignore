@@ -1,4 +1,5 @@
 *template.cu
 report.*
 !report.pdf
+!report.tex
 .DS_Store
