@@ -5,6 +5,7 @@
 ### 1
 - CPUs are faster and better at handling complex instructions
 - GPUs have a lot more cores which means they can work on a lot of tasks in parallel
+- CPUs usually have higher clock speeds and there fore can execute a single instruction faster than a GPU
 
 ### 2 
 
@@ -41,7 +42,7 @@ The bandiwth from the test is lower than the value calculated.
 
 ## Exercise 3 - Rodinia CUDA benchmarks and Comparison with CPU
 
-In both images provided the results on the top are on a GPU and on the bottom on one thread using OpenMP. The programs executed on CUDA is faster ann both of the programs - heartwall and k-means. These tasks are imaging and data mining tasks which can be done in parallel. For this reason GPU performs it muchs faster.
+I've carried out experiments the heartwall and k-means tests. Changing the Makefile was not necessary however I removed the unnecessary file complitations to simplify the process and shorten the compilcation times. The two selected tasks are imaging and data mining tasks which can be done in parallel. Looking at the results in the below figures it can be seen that for both tests the execution time is more than twice as fast on a GPU compared to a CPU. While both executions can be parallelised the OMP code has been run using a single thread while the CUDA code uses 256 threads per block for the  imaging task. This is means that it can do many more calculations at the same time.
 
 ![heartwall](heartwall.png)
 
