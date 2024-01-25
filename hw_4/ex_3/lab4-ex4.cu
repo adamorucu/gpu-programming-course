@@ -41,10 +41,11 @@ struct timeval t_start, t_end;
 void cputimer_start(){
   gettimeofday(&t_start, 0);
 }
-void cputimer_stop(const char* info){
+double cputimer_stop(const char* info){
   gettimeofday(&t_end, 0);
   double time = (1000000.0*(t_end.tv_sec-t_start.tv_sec) + t_end.tv_usec-t_start.tv_usec);
   printf("Timing - %s. \t\tElasped %.0f microseconds \n", info, time);
+  return time;
 }
 
 // Initialize the sparse matrix needed for the heat time step
@@ -96,6 +97,8 @@ int main(int argc, char **argv) {
   cusparseHandle_t cusparseHandle;  // cuSPARSE handle
   cusparseSpMatDescr_t Adescriptor;   // Mat descriptor needed by cuSPARSE
 
+  unsigned long flop = 0;
+
   // Read the arguments from the command line
   dimX = atoi(argv[1]);
   nsteps = atoi(argv[2]);
@@ -117,10 +120,9 @@ int main(int argc, char **argv) {
 
   gpuCheck(cudaMallocManaged(&temp, dimX*sizeof(double)));
   gpuCheck(cudaMallocManaged(&tmp, dimX*sizeof(double)));
-
   gpuCheck(cudaMallocManaged(&A, nzv*sizeof(double)));
-  gpuCheck(cudaMallocManaged(&AColIndx, nzv*sizeof(int)));
   gpuCheck(cudaMallocManaged(&ARowPtr, (dimX+1)*sizeof(int)));
+  gpuCheck(cudaMallocManaged(&AColIndx, nzv*sizeof(int)));
 
   cputimer_stop("Allocating device memory");
 
@@ -131,8 +133,8 @@ int main(int argc, char **argv) {
     gpuCheck(cudaMemPrefetchAsync(temp, dimX*sizeof(double), cudaCpuDeviceId));
     gpuCheck(cudaMemPrefetchAsync(tmp, dimX*sizeof(double), cudaCpuDeviceId));
     gpuCheck(cudaMemPrefetchAsync(A, nzv*sizeof(double), cudaCpuDeviceId));
-    gpuCheck(cudaMemPrefetchAsync(AColIndx, nzv*sizeof(int), cudaCpuDeviceId));
     gpuCheck(cudaMemPrefetchAsync(ARowPtr, (dimX+1)*sizeof(int), cudaCpuDeviceId));
+    gpuCheck(cudaMemPrefetchAsync(AColIndx, nzv*sizeof(int), cudaCpuDeviceId));
 
     cputimer_stop("Prefetching GPU memory to the host");
   }
@@ -152,6 +154,7 @@ int main(int argc, char **argv) {
   if (concurrentAccessQ) {
     cputimer_start();
     //@@ Insert code to prefetch in Unified Memory asynchronously to the GPU
+    cudaGetDevice(&device);
     gpuCheck(cudaMemPrefetchAsync(temp, dimX*sizeof(double), device));
     gpuCheck(cudaMemPrefetchAsync(tmp, dimX*sizeof(double), device));
     gpuCheck(cudaMemPrefetchAsync(A, nzv*sizeof(double), device));
@@ -169,46 +172,56 @@ int main(int argc, char **argv) {
 
   //@@ Insert code to set the cuBLAS pointer mode to CUSPARSE_POINTER_MODE_HOST
   cublasCheck(cublasSetPointerMode(cublasHandle, CUBLAS_POINTER_MODE_HOST));
-  // cusparseCheck(cusparseSetPointerMode(cusparseHandle, CUSPARSE_POINTER_MODE_HOST));
+  cusparseCheck(cusparseSetPointerMode(cusparseHandle, CUSPARSE_POINTER_MODE_HOST));
 
   //@@ Insert code to call cusparse api to create the mat descriptor used by cuSPARSE
   // cusparseCheck(cusparseCreateMatDescr(&Adescriptor));
-  cusparseCheck(cusparseCreateCsr(&Adescriptor, dimX, dimX, nzv, ARowPtr, AColIndx, A,
-                                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
   cusparseDnVecDescr_t tempDescriptor;
   cusparseDnVecDescr_t tmpDescriptor;
+  cusparseCheck(cusparseCreateCsr(&Adescriptor, dimX, dimX, nzv, ARowPtr, AColIndx, A,
+                                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I, 
+                                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F));
   cusparseCheck(cusparseCreateDnVec(&tempDescriptor, dimX, temp, CUDA_R_64F));
   cusparseCheck(cusparseCreateDnVec(&tmpDescriptor, dimX, tmp, CUDA_R_64F));
 
   //@@ Insert code to call cusparse api to get the buffer size needed by the sparse matrix per
   //@@ vector (SMPV) CSR routine of cuSPARSE
-  cusparseCheck(cusparseSpMV_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, &one, Adescriptor,
-                                          tempDescriptor, &zero, tmpDescriptor, CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize));
+  cusparseCheck(cusparseSpMV_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, 
+                                          &one, Adescriptor, tempDescriptor, &zero, 
+                                          tmpDescriptor, CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, 
+                                          &bufferSize));
 
   //@@ Insert code to allocate the buffer needed by cuSPARSE
   gpuCheck(cudaMalloc(&buffer, bufferSize));
 
+  cputimer_start();
   // Perform the time step iterations
   for (int it = 0; it < nsteps; ++it) {
     //@@ Insert code to call cusparse api to compute the SMPV (sparse matrix multiplication) for
     //@@ the CSR matrix using cuSPARSE. This calculation corresponds to:
     //@@ tmp = 1 * A * temp + 0 * tmp
-    cusparseCheck(cusparseSpMV(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, &one, Adescriptor,
-                                   tempDescriptor, &zero, tmpDescriptor, CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, buffer));
+    cusparseCheck(cusparseSpMV(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, &one, 
+                                    Adescriptor, tempDescriptor, &zero, tmpDescriptor, 
+                                    CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, buffer));
+    flop += 2 * nzv;
 
     //@@ Insert code to call cublas api to compute the axpy routine using cuBLAS.
     //@@ This calculation corresponds to: temp = alpha * tmp + temp
     cublasCheck(cublasDaxpy(cublasHandle, dimX, &alpha, tmp, 1, temp, 1));
+    flop += 2 * dimX;
 
     //@@ Insert code to call cublas api to compute the norm of the vector using cuBLAS
     //@@ This calculation corresponds to: ||temp||
     cublasCheck(cublasDnrm2(cublasHandle, dimX, temp, 1, &norm));
+    flop += 2 * dimX;
 
     // cudaDeviceSynchronize();
     // If the norm of A*temp is smaller than 10^-4 exit the loop
     if (norm < 1e-4)
       break;
   }
+  double time = cputimer_stop("Steping time");
+  printf("FLOP/s: %f \n * 10^6", flop/time);
 
   // Calculate the exact solution using thrust
   thrust::device_ptr<double> thrustPtr(tmp);
@@ -225,12 +238,13 @@ int main(int argc, char **argv) {
   //@@ Insert the code to call cublas api to compute the norm of the absolute error
   //@@ This calculation corresponds to: || tmp ||
   cublasCheck(cublasDnrm2(cublasHandle, dimX, tmp, 1, &norm));
+  // cublasCheck(cublasDnrm2(cublasHandle, dimX, tmp, &one, temp, 1, temp, 1));
 
   // cudaDeviceSynchronize();
   error = norm;
   //@@ Insert the code to call cublas api to compute the norm of temp
   //@@ This calculation corresponds to: || temp ||
-  cublasCheck(cublasDnrm2(cublasHandle, dimX, tmp, 1, &norm));
+  cublasCheck(cublasDnrm2(cublasHandle, dimX, temp, 1, &norm));
 
   cudaDeviceSynchronize();
   // Calculate the relative error
