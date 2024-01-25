@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
   double tempRight = 300.;   // Right heat source applied to the rod
   cublasHandle_t cublasHandle;      // cuBLAS handle
   cusparseHandle_t cusparseHandle;  // cuSPARSE handle
-  cusparseMatDescr_t Adescriptor;   // Mat descriptor needed by cuSPARSE
+  cusparseSpMatDescr_t Adescriptor;   // Mat descriptor needed by cuSPARSE
 
   // Read the arguments from the command line
   dimX = atoi(argv[1]);
@@ -180,23 +180,10 @@ int main(int argc, char **argv) {
   cusparseCheck(cusparseCreateDnVec(&tempDescriptor, dimX, temp, CUDA_R_64F));
   cusparseCheck(cusparseCreateDnVec(&tmpDescriptor, dimX, tmp, CUDA_R_64F));
 
-  // cusparseCheck(cusparseCreateDnVec(&tempDescriptor, dimX, temp, CUDA_R_64F));
-  // cusparseCheck(cusparseCreateDnVec(&tmpDescriptor, dimX, tmp, CUDA_R_64F));
-
   //@@ Insert code to call cusparse api to get the buffer size needed by the sparse matrix per
   //@@ vector (SMPV) CSR routine of cuSPARSE
   cusparseCheck(cusparseSpMV_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, &one, Adescriptor,
                                           tempDescriptor, &zero, tmpDescriptor, CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize));
-  // cusparseCheck(cusparseSpMV_bufferSize(cusparseHandle,
-  //                     CUSPARSE_OPERATION_NON_TRANSPOSE,
-  //                     &one,
-  //                     ADescriptor,
-  //                     tempDescriptor,
-  //                     &zero,
-  //                     tmpDescriptor,
-  //                     CUDA_R_64F,
-  //                     CUSPARSE_SPMV_CSR_ALG1,
-  //                     &bufferSize));
 
   //@@ Insert code to allocate the buffer needed by cuSPARSE
   gpuCheck(cudaMalloc(&buffer, bufferSize));
@@ -206,13 +193,8 @@ int main(int argc, char **argv) {
     //@@ Insert code to call cusparse api to compute the SMPV (sparse matrix multiplication) for
     //@@ the CSR matrix using cuSPARSE. This calculation corresponds to:
     //@@ tmp = 1 * A * temp + 0 * tmp
-    // cusparseCheck(cusparseDcsrmv(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-    //         dimX, dimX, nzv, &one, Adescriptor, A, ARowPtr, AColIndx, temp, &zero, tmp));
     cusparseCheck(cusparseSpMV(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, &one, Adescriptor,
                                    tempDescriptor, &zero, tmpDescriptor, CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, buffer));
-    // cusparseCheck(cusparseSpMV(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-    //               &one, SpAdescriptor, DnTempdescriptor, &zero, DnTmpdescriptor,
-    //               CUDA_R_64F, CUSPARSE_SPMV_ALG_DEFAULT, buffer));
 
     //@@ Insert code to call cublas api to compute the axpy routine using cuBLAS.
     //@@ This calculation corresponds to: temp = alpha * tmp + temp
@@ -222,7 +204,7 @@ int main(int argc, char **argv) {
     //@@ This calculation corresponds to: ||temp||
     cublasCheck(cublasDnrm2(cublasHandle, dimX, temp, 1, &norm));
 
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
     // If the norm of A*temp is smaller than 10^-4 exit the loop
     if (norm < 1e-4)
       break;
@@ -256,10 +238,7 @@ int main(int argc, char **argv) {
   printf("The relative error of the approximation is %f\n", error);
 
   //@@ Insert the code to destroy the mat descriptor
-  // cusparseCheck(cusparseDestroyDnVec(DnTempdescriptor));
-  // cusparseCheck(cusparseDestroyDnVec(DnTmpdescriptor));
-  cusparseCheck(cusparseDestroyMatDescr(Adescriptor));
-  // cusparseCheck(cusparseDestroySpMat(SpAdescriptor));
+  cusparseCheck(cusparseDestroySpMat(Adescriptor));
   cusparseCheck(cusparseDestroyDnVec(tmpDescriptor));
   cusparseCheck(cusparseDestroyDnVec(tempDescriptor));
 

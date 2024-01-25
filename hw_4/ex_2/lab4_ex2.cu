@@ -6,6 +6,8 @@
 
 #define DataType double
 #define NUM_STREAMS 4
+#define TPB 64
+#define S_SEG 128
 
 __global__ void vecAdd(DataType *in1, DataType *in2, DataType *out, int len) {
   //@@ Insert code to implement vector addition here
@@ -41,7 +43,7 @@ int main(int argc, char **argv) {
   //@@ Insert code below to read in inputLength from args
   inputLength = atoi(argv[1]);
 
-  int S_seg = 128;
+  // int S_seg = 128;
 
   printf("The input length is %d\n", inputLength);
   
@@ -75,19 +77,45 @@ int main(int argc, char **argv) {
   cudaEventCreate(&stop);
   cudaEventRecord(start);
 
+  // dim3 dimGrid(ceil(S_seg / TPB));
+  // dim3 dimBlock(TPB);
+
+  int nSegments = (inputLength + S_SEG - 1) / S_SEG;
+  int segmentSize = (inputLength + nSegments - 1) / nSegments;
+  printf("segmentSize: %d\n", segmentSize);
+  printf("nSegments: %d\n", nSegments);
+
   //@@ Insert code to below to Copy memory to the GPU here
-  for (int i = 0; i < inputLength; i += S_seg) {
-    int streamIdx = i / S_seg % NUM_STREAMS;
-    int segSize = min(S_seg, inputLength - i);
+  // for (int i = 0; i < inputLength; i += S_seg) {
+  //   int streamIdx = i / S_seg % NUM_STREAMS;
+  //   int segSize = min(S_seg, inputLength - i);
 
-    cudaMemcpyAsync(&deviceInput1[i], &hostInput1[i], segSize*sizeof(DataType), cudaMemcpyHostToDevice, streams[streamIdx]);
-    cudaMemcpyAsync(&deviceInput2[i], &hostInput2[i], segSize*sizeof(DataType), cudaMemcpyHostToDevice, streams[streamIdx]);
+  //   cudaMemcpyAsync(&deviceInput1[i], &hostInput1[i], segSize*sizeof(DataType), cudaMemcpyHostToDevice, streams[streamIdx]);
+  //   cudaMemcpyAsync(&deviceInput2[i], &hostInput2[i], segSize*sizeof(DataType), cudaMemcpyHostToDevice, streams[streamIdx]);
 
-    vecAdd<<<(segSize + 31)/32, 32, 0, streams[streamIdx]>>>(&deviceInput1[i], &deviceInput2[i], &deviceOutput[i], segSize);
+  //   // vecAdd<<<(segSize + 31)/32, 32, 0, streams[streamIdx]>>>(&deviceInput1[i], &deviceInput2[i], &deviceOutput[i], segSize);
+  //   vecAdd<<<dimGrid, dimBlock, 0, streams[streamIdx]>>>(&deviceInput1[i], &deviceInput2[i], &deviceOutput[i], segSize);
 
-    cudaMemcpyAsync(&hostOutput[i], &deviceOutput[i], segSize*sizeof(DataType), cudaMemcpyDeviceToHost, streams[streamIdx]);
+  //   cudaMemcpyAsync(&hostOutput[i], &deviceOutput[i], segSize*sizeof(DataType), cudaMemcpyDeviceToHost, streams[streamIdx]);
+  // }
+    
+  for (int i = 0; i < nSegments; i++)
+  {
+    int offset = i * segmentSize;
+    int len = min(segmentSize, inputLength - offset);
+    int blockSize = TPB;
+    int gridSize = (len + blockSize - 1) / blockSize;
+    cudaStream_t stream = streams[i % NUM_STREAMS];
+    
+    cudaMemcpyAsync(deviceInput1 + offset, hostInput1 + offset, len * sizeof(DataType), cudaMemcpyHostToDevice, stream);
+    cudaMemcpyAsync(deviceInput2 + offset, hostInput2 + offset, len * sizeof(DataType), cudaMemcpyHostToDevice, stream);
+
+
+    vecAdd<<<gridSize, blockSize, 0, stream>>>(deviceInput1 + offset, deviceInput2 + offset, deviceOutput + offset, len);
+
+    cudaMemcpyAsync(hostOutput + offset, deviceOutput + offset, len * sizeof(DataType), cudaMemcpyDeviceToHost, stream);
   }
-  // Synchronize and clean up
+  
   for (int i = 0; i < NUM_STREAMS; ++i) {
     cudaStreamSynchronize(streams[i]);
     cudaStreamDestroy(streams[i]);
