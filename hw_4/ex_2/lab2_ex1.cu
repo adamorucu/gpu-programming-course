@@ -8,7 +8,8 @@
 __global__ void vecAdd(DataType *in1, DataType *in2, DataType *out, int len) {
   //@@ Insert code to implement vector addition here
   const int i = blockIdx.x*blockDim.x + threadIdx.x;
-  *(out + i) = *(in1 + i) + *(in2 + i);
+  // *(out + i) = *(in1 + i) + *(in2 + i);
+  out[i] = in1[i] + in2[i];
 }
 
 bool identicalArr(DataType *arr1, DataType *arr2, int length) {
@@ -24,6 +25,16 @@ bool identicalArr(DataType *arr1, DataType *arr2, int length) {
     return identical;
 }
 
+struct timeval t_start, t_end;
+void cputimer_start(){
+  gettimeofday(&t_start, 0);
+}
+double cputimer_stop(const char* info){
+  gettimeofday(&t_end, 0);
+  double time = (1000000.0*(t_end.tv_sec-t_start.tv_sec) + t_end.tv_usec-t_start.tv_usec);
+  printf("Timing - %s. \t\tElasped %.0f microseconds \n", info, time);
+  return time;
+}
 
 int main(int argc, char **argv) {
   
@@ -60,6 +71,14 @@ int main(int argc, char **argv) {
   cudaMalloc(&deviceInput2, inputLength*sizeof(DataType));
   cudaMalloc(&deviceOutput, inputLength*sizeof(DataType));
 
+  // Timing
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start);
+
+  cputimer_start();
+
   //@@ Insert code to below to Copy memory to the GPU here
   cudaMemcpy(deviceInput1, hostInput1, inputLength*sizeof(DataType), cudaMemcpyHostToDevice);
   cudaMemcpy(deviceInput2, hostInput2, inputLength*sizeof(DataType), cudaMemcpyHostToDevice);
@@ -68,15 +87,14 @@ int main(int argc, char **argv) {
   const int TPB = 32;
   const int BPG = (inputLength + TPB - 1)/TPB;
 
-  // Timing
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start);
-
   //@@ Launch the GPU Kernel here
   vecAdd<<<BPG, TPB>>>(deviceInput1, deviceInput2, deviceOutput, inputLength);
   cudaDeviceSynchronize();
+
+  //@@ Copy the GPU memory back to the CPU here
+  cudaMemcpy(hostOutput, deviceOutput, inputLength*sizeof(DataType), cudaMemcpyDeviceToHost);
+
+  cputimer_stop("Calculation");
 
   cudaEventRecord(stop);
   cudaEventSynchronize(stop);
@@ -84,8 +102,6 @@ int main(int argc, char **argv) {
   cudaEventElapsedTime(&milliseconds, start, stop);
   printf("Time taken: %f ms\n", milliseconds);
 
-  //@@ Copy the GPU memory back to the CPU here
-  cudaMemcpy(hostOutput, deviceOutput, inputLength*sizeof(DataType), cudaMemcpyDeviceToHost);
 
   //@@ Insert code below to compare the output with the reference
   bool identical = identicalArr(resultRef, hostOutput, inputLength);

@@ -26,15 +26,15 @@ Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
 
     There will be $ceil(800/16) * ceil(600/16) = 1900$ blocks. Since each block has $16*16=256$ threads there will be $256 * 1900 = 486,400$ threads in total. Given that each warp has 32 threads the number of warps is $486,400 / 32 = 15,200$.
 
-    600 is not a multiple of 16, therefore both bottom edge will have divergence. $ciel(800/16) = 50$ blocks will be in divergence. This is $50*256/32= 400$ warps.
+    There will be extra threads because bottom edge will be out of bounds. $ceil(600/16)*16-600=8$, there will be $8*800=6400$ threads out of bounds. These however will be covered by other. blocks so there will not execute in the if statement so there will not be divergence.
 
     \item \textbf{Now assume X=600 and Y=800 instead, how many warps will have control divergence? Please explain your answers.}
     
-    Repeating the same calculations, 600 is not a multiple of 16, therefore both right edge will have divergence. $ciel(800/16) = 50$ blocks will be in divergence. This is $50*256/32= 400$ warps.
+    600 is not a multiple of 16, therefore both right edge will be out of bounds. $ciel(800/16) = 50$ blocks will be out of bounds which means that last block in each row will have partially filled rows which will leave them divergent. This means that $50*256/32= 400$ warps will have control divergence.
 
     \item \textbf{Now assume X=600 and Y=799, how many warps will have control divergence? Please explain your answers.}
 
-    Repeating the same calculations, 600 is not a multiple of 16, therefore both right edge will have divergence. $ciel(799/16) = 50$ blocks will be in divergence. This is $50*256/32= 400$ warps.
+    Previous calculation is repeated to get 400 warps. Additionally having 799 pixels on the other axis means that there will be an extra row, which gives extra 38 warps. However these two axes have one overlapping warp therefore the answer is $400 + 38 - 1 = 437$
 
 \end{enumerate}
 
@@ -48,7 +48,7 @@ Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
 
   There wasn't a performance gain in fact streamed version of the code ended up being slightly slower.
     
-  \includegraphics*[width=0.6\textwidth]{images/inputsize.png}
+  \includegraphics*[width=0.6\textwidth]{images/stream.png}
 
   \item \textbf{Use nvprof to collect traces and the NVIDIA Visual Profiler (nvvp) to visualize the overlap of communication and computation.}
 
@@ -66,15 +66,24 @@ Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
 % %%%%%%%%%%%%%
 \section*{Exercise 3}
 
-I wasn't able to generate the tests because I exceded the compute limit on Google Colab.
 
 \begin{enumerate}
 
     \item \textbf{Run the program with different dimX values. For each one, approximate the FLOPS (floating-point operation per second) achieved in computing the SMPV (sparse matrix multiplication). Report FLOPS at different input sizes in a FLOPS. What do you see compared to the peak throughput you report in Lab2?}
 
+    There is a linear relationship between dimX and the number of FLOPs.
+
+    \includegraphics*[width=0.6\textwidth]{images/flops.png}
+
     \item \textbf{Run the program with dimX=128 and vary nsteps from 100 to 10000. Plot the relative error of the approximation at different nstep. What do you observe?}
 
+    \includegraphics*[width=0.6\textwidth]{images/nsteps.png}
+
     \item \textbf{Compare the performance with and without the prefetching in Unified Memory. How is the performance impact?}
+
+    There is a clear and significant differnce in the time for initialising the sparce matrix, wether prefetching is used.
+
+    \includegraphics*[width=0.6\textwidth]{images/prefetch.png}
 
 \end{enumerate}
 
