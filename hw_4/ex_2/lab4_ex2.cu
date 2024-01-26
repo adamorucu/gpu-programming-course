@@ -6,28 +6,14 @@
 
 #define DataType double
 #define NUM_STREAMS 4
-#define TPB 64
+#define TPB 32
 // #define S_SEG 128
 
-// __global__ void vecAdd(DataType *in1, DataType *in2, DataType *out, int len, int offset) {
-//   //@@ Insert code to implement vector addition here
-//   const int i = blockIdx.x*blockDim.x + threadIdx.x + offset;
-//   if (i < len)
-//     // *(out + i) = *(in1 + i) + *(in2 + i);
-// 		out[i] = in1[i] + in2[i];
-// }
-
-// __global__ void vecAdd2(DataType *in1, DataType *in2, DataType *out, int len) {
-//   //@@ Insert code to implement vector addition here
-//   const int i = blockIdx.x*blockDim.x + threadIdx.x;
-//   *(out + i) = *(in1 + i) + *(in2 + i);
-// }
-__global__ void vecAdd(DataType *in1, DataType *in2, DataType *out, int len) {
+__global__ void vecAdd(DataType *in1, DataType *in2, DataType *out, int len, int offset) {
   //@@ Insert code to implement vector addition here
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < len){
-    out[i] = in1[i] + in2[i];
-  }
+  const int i = blockIdx.x*blockDim.x + threadIdx.x + offset;
+  if (i < len)
+		out[i] = in1[i] + in2[i];
 }
 
 bool identicalArr(DataType *arr1, DataType *arr2, int length) {
@@ -68,17 +54,17 @@ int main(int argc, char **argv) {
 
   //@@ Insert code below to read in inputLength from args
   inputLength = atoi(argv[1]);
-  int s_seg = atoi(argv[2]);
+  int segSize = atoi(argv[2]);
 
   // int S_seg = 128;
 
   printf("The input length is %d\n", inputLength);
   
   //@@ Insert code below to allocate Host memory for input and output
-  hostInput1 = (DataType*)malloc(inputLength*sizeof(DataType));
-  hostInput2 = (DataType*)malloc(inputLength*sizeof(DataType));
-  hostOutput = (DataType*)malloc(inputLength*sizeof(DataType));
-  resultRef = (DataType*)malloc(inputLength*sizeof(DataType));
+  cudaHostAlloc(&hostInput1, inputLength * sizeof(DataType), cudaHostAllocDefault);
+  cudaHostAlloc(&hostInput2, inputLength * sizeof(DataType), cudaHostAllocDefault);
+  cudaHostAlloc(&hostOutput, inputLength * sizeof(DataType), cudaHostAllocDefault);
+  cudaHostAlloc(&resultRef, inputLength * sizeof(DataType), cudaHostAllocDefault);
   
   //@@ Insert code below to initialize hostInput1 and hostInput2 to random numbers, and create reference result in CPU
   srand((unsigned)time(NULL));
@@ -93,74 +79,31 @@ int main(int argc, char **argv) {
   cudaMalloc(&deviceInput2, inputLength*sizeof(DataType));
   cudaMalloc(&deviceOutput, inputLength*sizeof(DataType));
 
-  // // Start streams
-  // for (int i = 0; i < NUM_STREAMS; ++i) {
-  //   cudaStreamCreate(&streams[i]);
-  // }
+  // Start streams
+  for (int i = 0; i < NUM_STREAMS; ++i) {
+    cudaStreamCreate(&streams[i]);
+  }
 
-  // Timing
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start);
-
-  // cputimer_start();
-  // for (int i = 0; i < inputLength; i+=segSize)
-  // {
-  //   // int offset = i * segmentSize;
-  //   int len = min(segSize, inputLength - i);
-  //   // int blockSize = TPB;
-  //   int gridSize = (len + TPB - 1) / TPB;
-  //   cudaStream_t stream = streams[(i/segSize) % NUM_STREAMS];
-    
-  //   cudaMemcpyAsync(&deviceInput1[i], &hostInput1[i], len * sizeof(DataType), cudaMemcpyHostToDevice, stream);
-  //   cudaMemcpyAsync(&deviceInput2[i], &hostInput2[i], len * sizeof(DataType), cudaMemcpyHostToDevice, stream);
-
-  //   vecAdd<<<gridSize, TPB, 0, stream>>>(deviceInput1, deviceInput2, deviceOutput, inputLength, i);
-
-  //   cudaMemcpyAsync(&hostOutput[i], &deviceOutput[i], len * sizeof(DataType), cudaMemcpyDeviceToHost, stream);
-  // }
-  // cputimer_stop("Calculation");
-  
-  // for (int i = 0; i < NUM_STREAMS; ++i) {
-  //   cudaStreamSynchronize(streams[i]);
-  //   cudaStreamDestroy(streams[i]);
-  // }
-
-    const int streamByte = s_seg * sizeof(DataType);
-    for(int streamIndex = 0; streamIndex < NUM_STREAMS; ++streamIndex){
-       cudaStreamCreate(&streams[streamIndex]);
-    }
   cputimer_start();
+  for (int i = 0; i < inputLength; i+=segSize)
+  {
+    int len = min(segSize, inputLength - i);
+    int gridSize = (len + TPB - 1) / TPB;
+    cudaStream_t stream = streams[(i/segSize) % NUM_STREAMS];
+    
+    cudaMemcpyAsync(&deviceInput1[i], &hostInput1[i], len * sizeof(DataType), cudaMemcpyHostToDevice, stream);
+    cudaMemcpyAsync(&deviceInput2[i], &hostInput2[i], len * sizeof(DataType), cudaMemcpyHostToDevice, stream);
 
-    for(int i = 0; i < ((inputLength)/(4*s_seg));++i){
-      for(int streamIndex = 0; streamIndex < NUM_STREAMS; ++streamIndex){
-        int offset = ((NUM_STREAMS*i)+streamIndex) * s_seg;
-        cudaMemcpyAsync(&deviceInput1[offset],&hostInput1[offset],streamByte,cudaMemcpyHostToDevice,streams[streamIndex]);
-        cudaMemcpyAsync(&deviceInput2[offset],&hostInput2[offset],streamByte,cudaMemcpyHostToDevice,streams[streamIndex]);
-        
-        //@@ Initialize the 1D grid and block dimensions here
-        int Dg = (s_seg+TPB-1)/TPB;
-        int Db = TPB;
+    vecAdd<<<gridSize, TPB, 0, stream>>>(deviceInput1, deviceInput2, deviceOutput, inputLength, i);
 
-        //@@ Launch the GPU Kernel here
-        vecAdd<<<dim3(Dg,1,1), dim3(Db,1,1),0,streams[streamIndex]>>>(&deviceInput1[offset],&deviceInput2[offset], &deviceOutput[offset], s_seg);
-        cudaMemcpyAsync(&hostOutput[offset],&deviceOutput[offset],streamByte,cudaMemcpyDeviceToHost,streams[streamIndex]);
-      }
-    }
-  cudaDeviceSynchronize();
-
-    for(int streamIndex = 0; streamIndex < NUM_STREAMS; ++streamIndex){
-        cudaStreamDestroy(streams[streamIndex]);
-    }
-
+    cudaMemcpyAsync(&hostOutput[i], &deviceOutput[i], len * sizeof(DataType), cudaMemcpyDeviceToHost, stream);
+  }
   cputimer_stop("Calculation");
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  float milliseconds = 0;
-  cudaEventElapsedTime(&milliseconds, start, stop);
-  printf("Time taken: %f ms\n", milliseconds);
-
+  
+  for (int i = 0; i < NUM_STREAMS; ++i) {
+    cudaStreamSynchronize(streams[i]);
+    cudaStreamDestroy(streams[i]);
+  }
 
   //@@ Insert code below to compare the output with the reference
   bool identical = identicalArr(resultRef, hostOutput, inputLength);
@@ -175,10 +118,10 @@ int main(int argc, char **argv) {
   cudaFree(deviceOutput);
 
   //@@ Free the CPU memory here
-  free(hostInput1);
-  free(hostInput2);
-  free(hostOutput);
-  free(resultRef);
+  cudaFreeHost(hostInput1);
+  cudaFreeHost(hostInput2);
+  cudaFreeHost(hostOutput);
+  cudaFreeHost(resultRef);
 
   return 0;
 }

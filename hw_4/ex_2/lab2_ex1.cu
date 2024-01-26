@@ -96,13 +96,6 @@ int main(int argc, char **argv) {
 
   cputimer_stop("Calculation");
 
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  float milliseconds = 0;
-  cudaEventElapsedTime(&milliseconds, start, stop);
-  printf("Time taken: %f ms\n", milliseconds);
-
-
   //@@ Insert code below to compare the output with the reference
   bool identical = identicalArr(resultRef, hostOutput, inputLength);
   if (identical)

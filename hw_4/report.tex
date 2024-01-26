@@ -46,9 +46,9 @@ Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
 \begin{enumerate}
   \item \textbf{Compared to the non-streamed vector addition, what performance gain do you get? Present in a plot ( you may include comparison at different vector length)}
 
-  There wasn't a performance gain in fact streamed version of the code ended up being slightly slower.
+  Experiment for segment size 4096. In my experiments the performance gain increased with the length of the input. The average was around 3X improvement.
     
-  \includegraphics*[width=0.6\textwidth]{images/stream.png}
+  \includegraphics*[width=0.6\textwidth]{images/length.png}
 
   \item \textbf{Use nvprof to collect traces and the NVIDIA Visual Profiler (nvvp) to visualize the overlap of communication and computation.}
 
@@ -57,8 +57,10 @@ Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
   \includegraphics*[width=0.6\textwidth]{images/err.png}
 
   \item \textbf{What is the impact of segment size on performance? Present in a plot ( you may choose a large vector and compare 4-8 different segment sizes)}
+  
+  The execution time gets smaller as segment size grows. Experiment for 65,536 input length.
 
-  \includegraphics*[width=0.6\textwidth]{images/segmentsize.png}
+  \includegraphics*[width=0.6\textwidth]{images/segsize.png}
 
 \end{enumerate}
 
@@ -71,11 +73,13 @@ Url to code: \url{https://github.com/adamorucu/gpu-programming-course}
 
     \item \textbf{Run the program with different dimX values. For each one, approximate the FLOPS (floating-point operation per second) achieved in computing the SMPV (sparse matrix multiplication). Report FLOPS at different input sizes in a FLOPS. What do you see compared to the peak throughput you report in Lab2?}
 
-    There is a linear relationship between dimX and the number of FLOPs.
+    There is a linear relationship between dimX and the number of FLOPs. The peak seems to be around 21,000 * 10**6 FLOPs where it stops increasing with higher dimX.
 
-    \includegraphics*[width=0.6\textwidth]{images/flops.png}
+    \includegraphics*[width=0.6\textwidth]{images/flops2.png}
 
     \item \textbf{Run the program with dimX=128 and vary nsteps from 100 to 10000. Plot the relative error of the approximation at different nstep. What do you observe?}
+
+    As expected the approximations are better as the number of steps grows and the error convergece to zero.
 
     \includegraphics*[width=0.6\textwidth]{images/nsteps.png}
 
